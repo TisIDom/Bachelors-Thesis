@@ -1,11 +1,6 @@
 import random
 import time
 import helper_functions as hf
-# Task object:
-# worst case execution time WCET C; based on Jejurikar [0.5ms,10ms]
-# deadline D; based on Jejurikar [10ms,125ms]
-# periodicity T; based on Jejurikar [10ms,125ms]
-# offset
 
 
 class Task:
@@ -24,13 +19,6 @@ class Task:
        self.offset = new_offset
 
 
-# TaskSet object:
-# Tasks[] taskset; based on Jejurikar n <= 20
-# generate_taskset(n, U)
-# is_feasible(taskset)
-# calculate_utilization(taskset)
-# calculate_hyperperiod(taskset)
-
 class TaskSet:
     # constraints
     min_wcet = 0.5
@@ -46,13 +34,17 @@ class TaskSet:
     
     def __init__(self, count, cpu_target):
         random.seed(time.time())
+        self.taskset = []
         self.generate_taskset(count, cpu_target)
 
     def generate_taskset(self, n, U):
         # uses UUniSort algorithm
         U_vector = [0, U]
         for i in range(n-1):
-            U_vector.append(random.uniform(1, U))
+            new_number = 0
+            while new_number in U_vector:
+                new_number = round(random.uniform(1, U),0)
+            U_vector.append(new_number)
             
         U_vector.sort()
         
@@ -61,7 +53,12 @@ class TaskSet:
         U_vector.pop()
         
         for i in range(n):
-            deadline = period = random.choice(self.deadlines)
+            allowed_deadlines = []
+            for deadline in self.deadlines:
+                wcet = round((deadline*U_vector[i])/100,1)
+                if not wcet < self.min_wcet and not wcet > self.max_wcet:
+                    allowed_deadlines.append(deadline)
+            deadline = period = random.choice(allowed_deadlines)
             self.taskset.append(Task(self.current_task_id, round((deadline*U_vector[i])/100,2), deadline, period))
             self.current_task_id += 1
         
@@ -83,17 +80,6 @@ class TaskSet:
         return self.hyperperiod
     
     def calculate_hyperperiod(self, taskset):
-        # print(depth)
-        # if taskset.__len__() != 0:
-        #     print(taskset[0].T)
-        # print(self.hyperperiod)
-        
-        # depth = depth + 1
-        # if depth >= self.taskset.__len__():
-        #     return 2
-        # if self.hyperperiod == 0:
-        #     self.hyperperiod = taskset[0].T
-        # self.hyperperiod = hf.lcm(self.hyperperiod, self.calculate_hyperperiod(taskset[1:], depth))
         period_set = []
         for task in taskset:
             period_set.append(task.T)
@@ -101,4 +87,4 @@ class TaskSet:
         self.hyperperiod = period_set[0]
         for p in period_set:
             self.hyperperiod = hf.lcm(p, self.hyperperiod)
-            
+        
