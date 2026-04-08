@@ -21,9 +21,9 @@ class Task:
 
 class TaskSet:
     # constraints
-    min_wcet = 0.5
-    max_wcet = 10
-    deadlines = [10, 20, 25, 40, 50, 75, 100, 125]
+    min_wcet = 50
+    max_wcet = 1000
+    deadlines = [1000, 2000, 2500, 4000, 5000, 7500, 10000, 12500]
     periods = deadlines
     current_task_id = 0
     

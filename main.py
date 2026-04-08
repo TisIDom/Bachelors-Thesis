@@ -6,10 +6,16 @@ import helper_functions as hf
 if __name__== "__main__":
     hyperperiods = []
     for i in range(1):
-        taskset = t_gen.TaskSet(20, 50)
-        for j in range(20):
-            print(taskset.taskset[j].id, taskset.taskset[j].C, taskset.taskset[j].D, taskset.taskset[j].T)
+        taskset = t_gen.TaskSet(5, 100)
+        for task in taskset.taskset:
+            print(vars(task))
         print(taskset.get_cpu_utilization())
+        print(taskset.get_hyperperiod())
+    
+    simulation = sim.Simulator()
+    simulation.run(taskset, "A", taskset.get_hyperperiod())
+    for task in taskset.taskset:
+        print(vars(task))
         
     
 # EnergyModel object:
