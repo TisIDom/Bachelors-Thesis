@@ -51,14 +51,9 @@ class Simulator:
             next_request_time = all_requests[next_request_idx].release_time
             if next_request_idx == all_requests.__len__():
                 next_request_time = horizon
-            
-            delta_time = next_request_time - time
-            time += delta_time
-            released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, time, next_request_idx)
+            released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, next_request_time, next_request_idx)
 
-            if next_request_time != all_requests[next_request_idx].release_time:
-                next_request_time = all_requests[next_request_idx].release_time
-            else:
+            if next_request_time == all_requests[next_request_idx].release_time:
                 next_request_time = horizon
             
             while time < next_request_time:
@@ -79,7 +74,9 @@ class Simulator:
                         simulation_result.deadline_misses.append(current_request)
                     current_request.completion_time = time
                     current_request.is_completed = True
-                    released_requests.pop(next((i for i, item in enumerate(released_requests) if item.id == current_request.id), -1))
+                    idx = next((i for i, item in enumerate(released_requests) if item.id == current_request.id), None)
+                    if idx is not None:
+                        released_requests.pop(idx)
                 else:
                     current_request.remaining_time -= (next_request_time - time)
                     simulation_result.total_busy_time += (next_request_time - time)
