@@ -20,9 +20,9 @@ class Request:
         
 class SimulationResult:
     # timeline = [(start_time, end_time, request_id), ...] sorted by start_time
-    timeline = [()]
+    timeline = []
     requests = []
-    deadline_misses = 0
+    deadline_misses = []
     total_busy_time = 0
     total_idle_time = 0
     total_sleep_time = 0
@@ -41,46 +41,53 @@ class Simulator:
     def run(self,taskset, scheduler, horizon) -> SimulationResult:
         simulation_result = SimulationResult()
         time = 0
+        next_request_time = 0
         next_request_idx = 0
         released_requests = []
         all_requests = self.generate_all_request_set(taskset, horizon)
         all_requests.sort(key=lambda x: x.release_time, reverse=False)
         
         while time < horizon:
-            if next_request_idx == all_requests.__len__():
-                break
             next_request_time = all_requests[next_request_idx].release_time
+            if next_request_idx == all_requests.__len__():
+                next_request_time = horizon
             
             delta_time = next_request_time - time
             time += delta_time
             released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, time, next_request_idx)
-            # scheduler.schedule_request_set(request_set)
 
             if next_request_time != all_requests[next_request_idx].release_time:
                 next_request_time = all_requests[next_request_idx].release_time
             else:
                 next_request_time = horizon
+            
             while time < next_request_time:
-                # get next scheduled request
                 if released_requests.__len__() == 0:
-                    # check if enough time for sleep, otherwise idle
+                    simulation_result.total_sleep_time += (next_request_time - time)
                     time = next_request_time
                     break
-                current_request = released_requests[0]
+                print("Time now: ")
+                print(time)
+                current_request = scheduler.get_next_request(released_requests)
                 if time + current_request.remaining_time <= next_request_time:
                     # take into account offset?
-                    # add to busy time
+                    simulation_result.total_busy_time += current_request.remaining_time
                     time += current_request.remaining_time
                     current_request.remaining_time = 0
                     if time > current_request.absolute_deadline:
                         current_request.missed_deadline = True
+                        simulation_result.deadline_misses.append(current_request)
                     current_request.completion_time = time
                     current_request.is_completed = True
-                    released_requests.pop(0)
+                    released_requests.pop(next((i for i, item in enumerate(released_requests) if item.id == current_request.id), -1))
                 else:
                     current_request.remaining_time -= (next_request_time - time)
+                    simulation_result.total_busy_time += (next_request_time - time)
                     time = next_request_time
-            
+        for request in released_requests:
+                request.missed_deadline = True
+                simulation_result.deadline_misses.append(request)
+
         for request in all_requests:
             print(vars(request))
         return simulation_result
@@ -90,7 +97,7 @@ class Simulator:
         request_set = []
         for task in taskset.taskset:
             for n in range(math.ceil(horizon/task.T)):
-                request_set.append(Request(current_request_id, task.id, task.D*n, task.D*(n+1), task.C))
+                request_set.append(Request(current_request_id, task.id, task.D*n, task.T*(n+1), task.C))
                 current_request_id += 1
         return request_set
         
