@@ -4,35 +4,30 @@ import helper_functions as hf
 
 
 class Task:
-    id = 0
-    C = 0
-    D = 0
-    T = 0
-    offset = 0
     def __init__(self, id, wcet, deadline, period):
         self.id = id
         self.C = wcet
         self.D = deadline
         self.T = period
+        offset = 0
     
     def change_offset(self, new_offset):
        self.offset = new_offset
 
 
 class TaskSet:
-    # constraints
-    min_wcet = 50
-    max_wcet = 1000
-    deadlines = [1000, 2000, 2500, 4000, 5000, 7500, 10000, 12500, 15000]
-    periods = deadlines
-    current_task_id = 0
-    
-    hyperperiod = 0
-    U = 0
-    
-    taskset = []
     
     def __init__(self, count, cpu_target):
+        # constraints
+        self.min_wcet = 50
+        self.max_wcet = 1000
+        self.deadlines = [1000, 2000, 2500, 4000, 5000, 7500, 10000, 12500, 15000]
+        self.periods = self.deadlines
+        self.current_task_id = 0
+        
+        self.hyperperiod = 0
+        self.U = 0
+        
         random.seed(time.time())
         self.taskset = []
         self.generate_taskset(count, cpu_target)

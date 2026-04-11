@@ -1,43 +1,31 @@
 import math
 
 class Request:
-    id = 0 
-    task_id = 0
-    release_time = 0
-    absolute_deadline = 0
-    remaining_time = 0
-    completion_time = 0
-    is_completed = False
-    missed_deadline = False
-    
     def __init__(self, id, task_id, release_time, absolute_deadline, remaining_time):
         self.id = id
         self.task_id = task_id
         self.release_time = release_time
         self.absolute_deadline = absolute_deadline
         self.remaining_time = remaining_time
+        self.completion_time = 0
+        self.is_completed = False
+        self.missed_deadline = False
     
         
 class SimulationResult:
-    # timeline = [(start_time, end_time, request_id), ...] sorted by start_time
-    timeline = []
-    requests = []
-    deadline_misses = []
-    total_busy_time = 0
-    total_idle_time = 0
-    total_sleep_time = 0
-    wakeups = 0
-    idle_intervals = 0
-
-    
     def __init__(self):
-        a = 0
+        # timeline = [(start_time, end_time, request_id), ...] sorted by start_time
+        self.timeline = []
+        self.requests = []
+        self.deadline_misses = []
+        self.total_busy_time = 0
+        self.total_idle_time = 0
+        self.total_sleep_time = 0
+        self.wakeups = 0
+        self.idle_intervals = 0
 
 
 class Simulator:
-    def __init__(self):
-        a = 0
-    
     def run(self,taskset, scheduler, horizon) -> SimulationResult:
         simulation_result = SimulationResult()
         time = 0
@@ -49,15 +37,23 @@ class Simulator:
         
         while time < horizon:
             next_request_time = all_requests[next_request_idx].release_time
-            if next_request_idx == all_requests.__len__():
-                next_request_time = horizon
-            released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, next_request_time, next_request_idx)
+            print("pre new requests")
+            print("TIME: " + str(time))
+            print("Next request: " + str(next_request_time))
+            released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, time, next_request_idx)
 
+            # if next_request_idx wasn't updated, it means last request was reached
             if next_request_time == all_requests[next_request_idx].release_time:
                 next_request_time = horizon
+            else:
+                next_request_time = all_requests[next_request_idx].release_time
             
+            print("after new requests")
+            print("TIME: " + str(time))
+            print("Next request: " + str(next_request_time))
+        
             while time < next_request_time:
-                if released_requests.__len__() == 0:
+                if len(released_requests) == 0:
                     simulation_result.total_sleep_time += (next_request_time - time)
                     time = next_request_time
                     break

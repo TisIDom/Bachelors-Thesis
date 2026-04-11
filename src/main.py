@@ -7,7 +7,7 @@ import schedulers as sched
 if __name__== "__main__":
     hyperperiods = []
     for i in range(1):
-        taskset = t_gen.TaskSet(15, 105)
+        taskset = t_gen.TaskSet(3, 105)
         for task in taskset.taskset:
             print(vars(task))
 
@@ -17,6 +17,10 @@ if __name__== "__main__":
     for task in taskset.taskset:
         print(vars(task))
     print(vars(sim_res))
+    print("deadlines missed sim_res")
+    for request in sim_res.deadline_misses:
+        print(vars(request))
+    
         
     
 # EnergyModel object:
