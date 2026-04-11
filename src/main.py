@@ -7,17 +7,17 @@ import schedulers as sched
 if __name__== "__main__":
     hyperperiods = []
     for i in range(1):
-        taskset = t_gen.TaskSet(3, 105)
-        for task in taskset.taskset:
-            print(vars(task))
+        taskset = t_gen.TaskSet(3, 50)
 
     scheduler = sched.RMSScheduler()
     simulation = sim.Simulator()
     sim_res = simulation.run(taskset, scheduler, taskset.get_hyperperiod())
     for task in taskset.taskset:
         print(vars(task))
-    print(vars(sim_res))
+    print(sim_res.timeline)
     print("deadlines missed sim_res")
+    for request in sim_res.requests:
+        print(vars(request))
     for request in sim_res.deadline_misses:
         print(vars(request))
     

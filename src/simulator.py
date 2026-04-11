@@ -34,12 +34,10 @@ class Simulator:
         released_requests = []
         all_requests = self.generate_all_request_set(taskset, horizon)
         all_requests.sort(key=lambda x: x.release_time, reverse=False)
+        simulation_result.requests = all_requests
         
         while time < horizon:
             next_request_time = all_requests[next_request_idx].release_time
-            print("pre new requests")
-            print("TIME: " + str(time))
-            print("Next request: " + str(next_request_time))
             released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, time, next_request_idx)
 
             # if next_request_idx wasn't updated, it means last request was reached
@@ -47,21 +45,17 @@ class Simulator:
                 next_request_time = horizon
             else:
                 next_request_time = all_requests[next_request_idx].release_time
-            
-            print("after new requests")
-            print("TIME: " + str(time))
-            print("Next request: " + str(next_request_time))
         
             while time < next_request_time:
                 if len(released_requests) == 0:
+                    simulation_result.timeline.append((time, time + (next_request_time - time), -1))
                     simulation_result.total_sleep_time += (next_request_time - time)
                     time = next_request_time
                     break
-                print("Time now: ")
-                print(time)
                 current_request = scheduler.get_next_request(released_requests)
                 if time + current_request.remaining_time <= next_request_time:
                     # take into account offset?
+                    simulation_result.timeline.append((time, time + current_request.remaining_time, current_request.id))
                     simulation_result.total_busy_time += current_request.remaining_time
                     time += current_request.remaining_time
                     current_request.remaining_time = 0
@@ -75,14 +69,13 @@ class Simulator:
                         released_requests.pop(idx)
                 else:
                     current_request.remaining_time -= (next_request_time - time)
+                    simulation_result.timeline.append((time, time + (next_request_time - time), current_request.id))
                     simulation_result.total_busy_time += (next_request_time - time)
                     time = next_request_time
         for request in released_requests:
                 request.missed_deadline = True
                 simulation_result.deadline_misses.append(request)
 
-        for request in all_requests:
-            print(vars(request))
         return simulation_result
     
     def generate_all_request_set(self, taskset, horizon):
