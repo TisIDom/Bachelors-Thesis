@@ -32,6 +32,8 @@ class Simulator:
         next_request_time = 0
         next_request_idx = 0
         released_requests = []
+        is_sleeping = False
+        
         all_requests = self.generate_all_request_set(taskset, horizon)
         all_requests.sort(key=lambda x: x.release_time, reverse=False)
         simulation_result.requests = all_requests
@@ -45,33 +47,44 @@ class Simulator:
                 next_request_time = horizon
             else:
                 next_request_time = all_requests[next_request_idx].release_time
-        
+              
             while time < next_request_time:
-                if len(released_requests) == 0:
-                    simulation_result.timeline.append((time, time + (next_request_time - time), -1))
-                    simulation_result.total_sleep_time += (next_request_time - time)
-                    time = next_request_time
-                    break
-                current_request = scheduler.get_next_request(released_requests)
-                if time + current_request.remaining_time <= next_request_time:
-                    # take into account offset?
-                    simulation_result.timeline.append((time, time + current_request.remaining_time, current_request.id))
-                    simulation_result.total_busy_time += current_request.remaining_time
-                    time += current_request.remaining_time
-                    current_request.remaining_time = 0
-                    if time > current_request.absolute_deadline:
-                        current_request.missed_deadline = True
-                        simulation_result.deadline_misses.append(current_request)
-                    current_request.completion_time = time
-                    current_request.is_completed = True
-                    idx = next((i for i, item in enumerate(released_requests) if item.id == current_request.id), None)
-                    if idx is not None:
-                        released_requests.pop(idx)
+                if is_sleeping:
+                    wake_time = scheduler.get_wake_time(released_requests, time)
+                    next_event = min(wake_time, next_request_time, horizon)
+                    if time != next_event:
+                        simulation_result.timeline.append((time, time + (next_event - time), -1))
+                        simulation_result.total_sleep_time += (next_event - time)
+                    time = next_event
+                    if time == wake_time:
+                        is_sleeping = False
                 else:
-                    current_request.remaining_time -= (next_request_time - time)
-                    simulation_result.timeline.append((time, time + (next_request_time - time), current_request.id))
-                    simulation_result.total_busy_time += (next_request_time - time)
-                    time = next_request_time
+                    if len(released_requests) == 0:
+                        simulation_result.timeline.append((time, time + (next_request_time - time), -1))
+                        simulation_result.total_sleep_time += (next_request_time - time)
+                        is_sleeping = True
+                        time = next_request_time
+                        break
+                    current_request = scheduler.get_next_request(released_requests, time)
+                    if time + current_request.remaining_time <= next_request_time:
+                        # take into account offset?
+                        simulation_result.timeline.append((time, time + current_request.remaining_time, current_request.id))
+                        simulation_result.total_busy_time += current_request.remaining_time
+                        time += current_request.remaining_time
+                        current_request.remaining_time = 0
+                        if time > current_request.absolute_deadline:
+                            current_request.missed_deadline = True
+                            simulation_result.deadline_misses.append(current_request)
+                        current_request.completion_time = time
+                        current_request.is_completed = True
+                        idx = next((i for i, item in enumerate(released_requests) if item.id == current_request.id), None)
+                        if idx is not None:
+                            released_requests.pop(idx)
+                    else:
+                        current_request.remaining_time -= (next_request_time - time)
+                        simulation_result.timeline.append((time, time + (next_request_time - time), current_request.id))
+                        simulation_result.total_busy_time += (next_request_time - time)
+                        time = next_request_time
         for request in released_requests:
                 request.missed_deadline = True
                 simulation_result.deadline_misses.append(request)
