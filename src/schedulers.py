@@ -1,3 +1,5 @@
+import math
+
 class Scheduler:
     def __init__(self, taskset):
         # do nothing
@@ -19,6 +21,7 @@ class RMSScheduler(Scheduler):
     
      
 class PHScheduler(RMSScheduler):
+    z_by_task_id = []
     def __init__(self, taskset):
         self.z_by_task_id = self.compute_z_times(taskset)
     
@@ -32,22 +35,31 @@ class PHScheduler(RMSScheduler):
         )
     
     def compute_z_times(self, taskset):
-        # do nothing for now
         temp_taskset = taskset.copy()
-        temp_taskset.sort(key=lambda x: x.D, reverse=False)
-        for task in temp_taskset:
-            print(vars(task))
+        temp_taskset.sort(key=lambda x: (x.T, x.id))
             
-        a = []
-        for task in taskset:
-            a.append(1)
-        return a
+        raw_z = [0] * len(temp_taskset)
+        cumulative_util = 0.0
+        for i, task in enumerate(temp_taskset):
+            cumulative_util += task.C / task.T
+            raw_z[i] = round((1 - cumulative_util) * task.T, 0)
+            
+        adjusted_z = raw_z.copy()
+        for i in range(len(adjusted_z) - 2, -1, -1):
+            adjusted_z[i] = min(adjusted_z[i], adjusted_z[i + 1])
+        
+        z_by_id = [0] * len(temp_taskset)
+        for i, task in enumerate(temp_taskset):
+            z_by_id[task.id] = adjusted_z[i]
+            
+        return z_by_id
     
     
             
 
-# GAOptimizer object:
-# optimize(taskset, scheduler, energy_model, horizon)
+class GAOptimizer:
+    def optimize(taskset, scheduler, energy_model, horizon):
+        a=0
 
 # SAOptimizer object:
 # optimize(taskset, scheduler, energy_model, horizon)

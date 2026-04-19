@@ -9,7 +9,7 @@ class Task:
         self.C = wcet
         self.D = deadline
         self.T = period
-        offset = 0
+        self.offset = 0
     
     def change_offset(self, new_offset):
        self.offset = new_offset
@@ -50,11 +50,11 @@ class TaskSet:
         for i in range(n):
             allowed_deadlines = []
             for deadline in self.deadlines:
-                wcet = round((deadline*U_vector[i])/100,1)
+                wcet = round((deadline*U_vector[i])/100,0)
                 if not wcet < self.min_wcet and not wcet > self.max_wcet:
                     allowed_deadlines.append(deadline)
             deadline = period = random.choice(allowed_deadlines)
-            self.taskset.append(Task(self.current_task_id, round((deadline*U_vector[i])/100,2), deadline, period))
+            self.taskset.append(Task(self.current_task_id, int((deadline*U_vector[i])/100), deadline, period))
             self.current_task_id += 1
         
     def is_feasible(taskset):

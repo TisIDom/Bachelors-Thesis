@@ -53,14 +53,14 @@ class Simulator:
                     wake_time = scheduler.get_wake_time(released_requests, time)
                     next_event = min(wake_time, next_request_time, horizon)
                     if time != next_event:
-                        simulation_result.timeline.append((time, time + (next_event - time), -1))
+                        simulation_result.timeline.append((time, time + (next_event - time), -2, -2))
                         simulation_result.total_sleep_time += (next_event - time)
                     time = next_event
                     if time == wake_time:
                         is_sleeping = False
                 else:
                     if len(released_requests) == 0:
-                        simulation_result.timeline.append((time, time + (next_request_time - time), -1))
+                        simulation_result.timeline.append((time, time + (next_request_time - time), -1, -1))
                         simulation_result.total_sleep_time += (next_request_time - time)
                         is_sleeping = True
                         time = next_request_time
@@ -68,7 +68,7 @@ class Simulator:
                     current_request = scheduler.get_next_request(released_requests, time)
                     if time + current_request.remaining_time <= next_request_time:
                         # take into account offset?
-                        simulation_result.timeline.append((time, time + current_request.remaining_time, current_request.id))
+                        simulation_result.timeline.append((time, time + current_request.remaining_time, current_request.task_id, current_request.id))
                         simulation_result.total_busy_time += current_request.remaining_time
                         time += current_request.remaining_time
                         current_request.remaining_time = 0
@@ -82,7 +82,7 @@ class Simulator:
                             released_requests.pop(idx)
                     else:
                         current_request.remaining_time -= (next_request_time - time)
-                        simulation_result.timeline.append((time, time + (next_request_time - time), current_request.id))
+                        simulation_result.timeline.append((time, time + (next_request_time - time), current_request.task_id, current_request.id))
                         simulation_result.total_busy_time += (next_request_time - time)
                         time = next_request_time
         for request in released_requests:
@@ -96,7 +96,9 @@ class Simulator:
         request_set = []
         for task in taskset.taskset:
             for n in range(math.ceil(horizon/task.T)):
-                request_set.append(Request(current_request_id, task.id, task.D*n, task.T*(n+1), task.C))
+                release_time = task.offset + task.D*n
+                deadline_time = release_time + task.T
+                request_set.append(Request(current_request_id, task.id, release_time, deadline_time, task.C))
                 current_request_id += 1
         return request_set
         
