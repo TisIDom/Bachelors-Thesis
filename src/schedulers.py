@@ -1,4 +1,7 @@
 import math
+import simulator as sim
+import copy
+import random
 
 class Scheduler:
     def __init__(self, taskset):
@@ -54,12 +57,42 @@ class PHScheduler(RMSScheduler):
             
         return z_by_id
     
-    
             
-
 class GAOptimizer:
-    def optimize(taskset, scheduler, energy_model, horizon):
-        a=0
+    def optimize(self, taskset, scheduler, energy_model, horizon, population_size, generation_count):
+        chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
+                       for _ in range(population_size)
+                       ]
+        
+        # generate starting values
+        for chromosome in chromosomes:
+            for j in range(len(chromosome)):
+                new_offset = random.randint(0, taskset.taskset[j].T)
+                chromosome[j] = new_offset
+        
+        with open("output.txt", "w") as f:
+            print(chromosomes, file=f)
+            for task in taskset.taskset:
+                print(vars(task), file=f)
+            for i in range(generation_count):
+                for chromosome in chromosomes:
+                    temp_taskset = copy.deepcopy(taskset)
+                    for i, new_offset in enumerate(chromosome):
+                        temp_taskset.taskset[i].offset = new_offset
+                    simulation = sim.Simulator()
+                    sim_res = simulation.run(temp_taskset, scheduler, horizon)
+                    
+                    # for request in sim_res.requests:
+                    #     print(vars(request))    
+            
+                    print(sim_res.timeline, file=f)
+                    # print(scheduler.z_by_task_id, file=f)
+                    # for request in sim_res.requests:
+                    #     print(vars(request), file=f)
+                    for request in sim_res.deadline_misses:
+                        print(vars(request), file=f)
+    
+        
 
 # SAOptimizer object:
 # optimize(taskset, scheduler, energy_model, horizon)

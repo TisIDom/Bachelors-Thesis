@@ -36,11 +36,20 @@ class Simulator:
         
         all_requests = self.generate_all_request_set(taskset, horizon)
         all_requests.sort(key=lambda x: x.release_time, reverse=False)
+        for request in all_requests:
+            print(vars(request))
         simulation_result.requests = all_requests
         
         while time < horizon:
             next_request_time = all_requests[next_request_idx].release_time
             released_requests,next_request_idx = self.get_released_requests(all_requests, released_requests, time, next_request_idx)
+
+            if len(released_requests) == 0:
+                simulation_result.timeline.append((time, time + (next_request_time - time), -1, -1))
+                simulation_result.total_sleep_time += (next_request_time - time)
+                is_sleeping = True
+                time = next_request_time
+                continue
 
             # if next_request_idx wasn't updated, it means last request was reached
             if next_request_time == all_requests[next_request_idx].release_time:
@@ -86,10 +95,12 @@ class Simulator:
                         simulation_result.total_busy_time += (next_request_time - time)
                         time = next_request_time
         for request in released_requests:
+            if (not request.is_completed) and (not request.missed_deadline) and time > request.absolute_deadline:
                 request.missed_deadline = True
                 simulation_result.deadline_misses.append(request)
 
         return simulation_result
+    
     
     def generate_all_request_set(self, taskset, horizon):
         current_request_id = 0
@@ -102,6 +113,7 @@ class Simulator:
                 current_request_id += 1
         return request_set
         
+        
     def get_released_requests(self, all_requests: list[Request], released_requests: list[Request], current_time, next_request_idx):
         new_request_count = 0
         for request in all_requests[next_request_idx:]:
@@ -112,3 +124,15 @@ class Simulator:
                 next_request_idx += new_request_count
                 break
         return released_requests,next_request_idx
+    
+    
+class EnergyModel:
+    def __init__(self, p_active, p_idle, p_sleep, e_wakeup, break_even_time):
+        self.p_active
+        self.p_idle
+        self.p_sleep
+        self.e_wakeup
+        self.break_even_time
+        
+    def evaluate(simulation_result):
+        a=0
