@@ -15,9 +15,41 @@ if __name__== "__main__":
     with open("output.txt", "a") as f:
         for name, tasks in test_sc.ph_test_scenarios:
             taskset.taskset = tasks
+            energy_model= sim.EnergyModel(10, 3, 1, 1, 2)
+            simulator = sim.Simulator()
+            release_window = taskset.get_hyperperiod() * 2
+            evaluation_hyperperiod = taskset.get_hyperperiod() * 2 + max(task.D for task in taskset.taskset)
+            
+            scheduler = sched.EDFScheduler(taskset.taskset)
+            sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
+            energy_vals = energy_model.evaluate(sim_res, 10000, 20000)
+            # print(sim_res.timeline)
+            # print(energy_vals)
+            # for miss in sim_res.deadline_misses:
+            #     print(miss)
             scheduler = sched.RMSScheduler(taskset.taskset)
+            sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
+            energy_vals = energy_model.evaluate(sim_res, 10000, 20000)
+            # print(sim_res.timeline)
+            # print(energy_vals)
+            # for miss in sim_res.deadline_misses:
+            #     print(miss)
+            scheduler = sched.PHScheduler(taskset.taskset)
+            sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
+            energy_vals = energy_model.evaluate(sim_res, 10000, 20000)
+            # print(sim_res.timeline)
+            # print(energy_vals)
+            # for miss in sim_res.deadline_misses:
+            #     print(miss)
+            scheduler = sched.RMSScheduler(taskset.taskset)
+                        
             optimizer = sched.GAOptimizer()
-            optimizer.optimize(taskset, scheduler, 0, taskset.get_hyperperiod(), 20, 1)
+            sim_res = optimizer.optimize(taskset, scheduler, energy_model, taskset.get_hyperperiod(), 3, 1, release_window, evaluation_hyperperiod)
+            energy_vals = energy_model.evaluate(sim_res, 10000, 20000)
+            print(sim_res.timeline)
+            print(energy_vals)
+            for miss in sim_res.deadline_misses:
+                print(miss)
             break
             
             

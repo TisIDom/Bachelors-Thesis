@@ -59,14 +59,15 @@ class PHScheduler(RMSScheduler):
     
             
 class GAOptimizer:
-    def optimize(self, taskset, scheduler, energy_model, horizon, population_size, generation_count):
+    def optimize(self, taskset, scheduler, energy_model, horizon, population_size, generation_count, release_window, evaluation_hyperperiod):
         chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
                        for _ in range(population_size)
                        ]
         
         # generate starting values
         for chromosome in chromosomes:
-            for j in range(len(chromosome)):
+            chromosome[0] = 0
+            for j in range(1, len(chromosome)):
                 new_offset = random.randint(0, taskset.taskset[j].T)
                 chromosome[j] = new_offset
         
@@ -76,12 +77,21 @@ class GAOptimizer:
                 print(vars(task), file=f)
             for i in range(generation_count):
                 for chromosome in chromosomes:
+                    print(chromosome)
                     temp_taskset = copy.deepcopy(taskset)
                     for i, new_offset in enumerate(chromosome):
                         temp_taskset.taskset[i].offset = new_offset
-                    simulation = sim.Simulator()
-                    sim_res = simulation.run(temp_taskset, scheduler, horizon)
+                    simulator = sim.Simulator()
+                    sim_res = sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
                     
+                    energy_vals = energy_model.evaluate(sim_res, 10000, 20000)
+                    fitness = energy_vals['total_energy'] / (sim_res.timeline[-2])[1]
+                    if len(sim_res.deadline_misses) > 0:
+                        fitness = 1_000_000 + 100_000 * len(sim_res.deadline_misses)
+                    print(fitness, file=f)
+                    print(energy_vals, file=f)
+                    for miss in sim_res.deadline_misses:
+                        print(miss, file=f)
                     # for request in sim_res.requests:
                     #     print(vars(request))    
             
@@ -91,11 +101,17 @@ class GAOptimizer:
                     #     print(vars(request), file=f)
                     for request in sim_res.deadline_misses:
                         print(vars(request), file=f)
+        
+        final_chromosome = chromosomes[0]
+        for i, new_offset in enumerate(final_chromosome):
+                        temp_taskset.taskset[i].offset = new_offset
+        sim_res = sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
+        return sim_res
     
         
 
 # SAOptimizer object:
 # optimize(taskset, scheduler, energy_model, horizon)
 
-# PSOOptimizer object:1
+# PSOOptimizer object:
 # optimize(taskset, scheduler, energy_model, horizon)
