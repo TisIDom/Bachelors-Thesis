@@ -59,7 +59,8 @@ class PHScheduler(RMSScheduler):
     
             
 class GAOptimizer:
-    def optimize(self, taskset, scheduler, energy_model, horizon, population_size, generation_count, release_window, evaluation_hyperperiod):
+    def optimize(self, taskset, scheduler, energy_model, horizon, population_size, generation_count, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
+        
         chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
                        for _ in range(population_size)
                        ]
@@ -72,42 +73,82 @@ class GAOptimizer:
                 chromosome[j] = new_offset
         
         with open("output.txt", "w") as f:
-            print(chromosomes, file=f)
-            for task in taskset.taskset:
-                print(vars(task), file=f)
             for i in range(generation_count):
-                for chromosome in chromosomes:
-                    print(chromosome)
+                fitness_by_id = []
+                chromosome_mate_pool = []
+                for j, chromosome in enumerate(chromosomes):
                     temp_taskset = copy.deepcopy(taskset)
-                    for i, new_offset in enumerate(chromosome):
-                        temp_taskset.taskset[i].offset = new_offset
+                    for k, new_offset in enumerate(chromosome):
+                        temp_taskset.taskset[k].offset = new_offset
                     simulator = sim.Simulator()
-                    sim_res = sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
+                    sim_res = sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
                     
-                    energy_vals = energy_model.evaluate(sim_res, 10000, 20000)
-                    fitness = energy_vals['total_energy'] / (sim_res.timeline[-2])[1]
+                    energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
+                    fitness = energy_vals['total_energy']
+                    fitness_by_id.append(fitness)
                     if len(sim_res.deadline_misses) > 0:
-                        fitness = 1_000_000 + 100_000 * len(sim_res.deadline_misses)
-                    print(fitness, file=f)
-                    print(energy_vals, file=f)
-                    for miss in sim_res.deadline_misses:
-                        print(miss, file=f)
-                    # for request in sim_res.requests:
-                    #     print(vars(request))    
-            
-                    print(sim_res.timeline, file=f)
-                    # print(scheduler.z_by_task_id, file=f)
-                    # for request in sim_res.requests:
-                    #     print(vars(request), file=f)
-                    for request in sim_res.deadline_misses:
-                        print(vars(request), file=f)
-        
-        final_chromosome = chromosomes[0]
+                        fitness = 100000000 + 1000000 * len(sim_res.deadline_misses)
+                        
+                    fitness_by_id[j] = fitness
+
+                ranked = sorted(zip(fitness_by_id, chromosomes), key=lambda x: x[0])
+                elite1 = ranked[0][1].copy()
+                elite2 = ranked[1][1].copy()
+                
+                for _ in range(len(chromosomes)-2):
+                    idx, surviving_chromosome = self.tournament_select(chromosomes, fitness_by_id)
+                    chromosome_mate_pool.append((idx, surviving_chromosome))
+
+                new_chromosomes = self.mate_chromosomes(chromosome_mate_pool)
+                
+                for i in range(len(new_chromosomes)):
+                    new_chromosomes[i] = self.mutate(new_chromosomes[i][1], taskset, 0.03)
+                    
+                chromosomes = [elite1, elite2] + new_chromosomes
+                
+        final_chromosome = chromosomes[fitness_by_id.index(min(fitness_by_id))]
         for i, new_offset in enumerate(final_chromosome):
                         temp_taskset.taskset[i].offset = new_offset
-        sim_res = sim_res = simulator.run(taskset, scheduler, release_window, evaluation_hyperperiod)
+        sim_res = sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
         return sim_res
     
+    
+    def tournament_select(self, chromosomes, fitness_by_id, k=2):
+        candidate_indices = random.sample(range(len(chromosomes)), k)
+        best_idx = min(candidate_indices, key=lambda i: fitness_by_id[i])
+        return best_idx, chromosomes[best_idx]
+    
+    def mate_chromosomes(self, chromosomes):
+        new_chromosomes = []
+        idx = 0
+        for _ in range(int(len(chromosomes)/2)):
+            mate1 = (0, [])
+            mate2 = (0, [])
+            while mate1[0] == mate2[0]:
+                mate_indices = random.sample(range(len(chromosomes)-1), 2)
+                mate1 = chromosomes[mate_indices[0]]
+                mate2 = chromosomes[mate_indices[1]]
+            child1, child2 = self.crossover(mate1[1], mate2[1])
+            new_chromosomes.append((idx, child1))
+            idx += 1
+            new_chromosomes.append((idx, child2))
+            idx += 1
+        return new_chromosomes
+    
+    def crossover(self, mate1, mate2):
+        p1, p2 = sorted(random.sample(range(1, len(mate1)), 2))
+        child1 = mate1[:p1] + mate2[p1:p2] + mate1[p2:]
+        child2 = mate2[:p1] + mate1[p1:p2] + mate2[p2:]
+        child1[0] = 0
+        child2[0] = 0
+        return child1, child2
+        
+    def mutate(self, child, taskset, mutation_chance):
+        new_child = child[:]
+        for i in range(1, len(new_child)):
+            if random.random() < mutation_chance:
+                new_child[i] = random.randint(0, taskset.taskset[i].T-1)
+        return new_child
         
 
 # SAOptimizer object:
