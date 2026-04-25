@@ -4,12 +4,12 @@ import helper_functions as hf
 
 
 class Task:
-    def __init__(self, id, wcet, deadline, period):
+    def __init__(self, id, wcet, deadline, period, offset=0):
         self.id = id
         self.C = wcet
         self.D = deadline
         self.T = period
-        self.offset = 0
+        self.offset = offset
     
     def change_offset(self, new_offset):
        self.offset = new_offset

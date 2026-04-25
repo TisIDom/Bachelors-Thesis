@@ -30,33 +30,46 @@ class PHScheduler(RMSScheduler):
     
     def get_wake_time(self, released_requests, time):
         if len(released_requests) == 0:
-            return None
-        return min(
+            return time
+        wake = min(
             request.release_time + self.z_by_task_id[request.task_id]
             for request in released_requests
             if not request.is_completed
         )
+        return max(time, wake)
     
     def compute_z_times(self, taskset):
         temp_taskset = taskset.copy()
         temp_taskset.sort(key=lambda x: (x.T, x.id))
-            
-        raw_z = [0] * len(temp_taskset)
-        cumulative_util = 0.0
-        for i, task in enumerate(temp_taskset):
-            cumulative_util += task.C / task.T
-            raw_z[i] = round((1 - cumulative_util) * task.T, 0)
-            
-        adjusted_z = raw_z.copy()
-        for i in range(len(adjusted_z) - 2, -1, -1):
-            adjusted_z[i] = min(adjusted_z[i], adjusted_z[i + 1])
+        temp_z_by_id = []
+        
+        for task in temp_taskset:
+            print(vars(task))
+        for i in range(len(temp_taskset)):
+            wcrt_iterations = [temp_taskset[i].C]
+            j = 1
+            wcrt = 0
+            while True:
+                new_wcrt = wcrt_iterations[0]
+                for k in range(i):
+                    new_wcrt += (math.ceil(wcrt_iterations[j-1]/temp_taskset[k].T) * temp_taskset[k].C)
+                print([wcrt_iterations, new_wcrt])
+                if wcrt_iterations[j-1] == new_wcrt:
+                    wcrt = new_wcrt
+                    break
+                if new_wcrt > temp_taskset[i].D:
+                    return None
+                wcrt_iterations.append(new_wcrt)
+                j+=1
+            temp_z_by_id.append(temp_taskset[i].T - wcrt)
         
         z_by_id = [0] * len(temp_taskset)
         for i, task in enumerate(temp_taskset):
-            z_by_id[task.id] = adjusted_z[i]
-            
+            z_by_id[task.id] = temp_z_by_id[i]
+        print(temp_z_by_id)
+        
         return z_by_id
-    
+
             
 class GAOptimizer:
     def optimize(self, taskset, scheduler, energy_model, horizon, population_size, generation_count, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
