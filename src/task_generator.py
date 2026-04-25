@@ -17,7 +17,7 @@ class Task:
 
 class TaskSet:
     
-    def __init__(self, count, cpu_target):
+    def __init__(self, count, cpu_target, offsets=False):
         # constraints
         self.min_wcet = 50
         self.max_wcet = 1000
@@ -30,9 +30,9 @@ class TaskSet:
         
         random.seed(time.time())
         self.taskset = []
-        self.generate_taskset(count, cpu_target)
+        self.generate_taskset(count, cpu_target, offsets)
 
-    def generate_taskset(self, n, U):
+    def generate_taskset(self, n, U, offsets):
         # uses UUniSort algorithm
         U_vector = [0, U]
         for i in range(n-1):
@@ -54,8 +54,13 @@ class TaskSet:
                 if not wcet < self.min_wcet and not wcet > self.max_wcet:
                     allowed_deadlines.append(deadline)
             deadline = period = random.choice(allowed_deadlines)
-            self.taskset.append(Task(self.current_task_id, int((deadline*U_vector[i])/100), deadline, period))
+            if offsets:
+                offset = random.randint(0, deadline-1)
+                self.taskset.append(Task(self.current_task_id, int((deadline*U_vector[i])/100), deadline, period, offset))
+            else:    
+                self.taskset.append(Task(self.current_task_id, int((deadline*U_vector[i])/100), deadline, period))
             self.current_task_id += 1
+        self.taskset[0].offset = 0
         
     def is_feasible(taskset):
         print("WIP")

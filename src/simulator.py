@@ -54,6 +54,7 @@ class Simulator:
                 continue
             
             while time < next_request_time:
+                prev_time = time
                 if is_sleeping:
                     wake_time = scheduler.get_wake_time(released_requests, time)
                     next_event = min(wake_time, next_request_time, evaluation_horizon)
@@ -90,6 +91,8 @@ class Simulator:
                         simulation_result.timeline.append((time, time + (next_request_time - time), current_request.task_id, current_request.id))
                         simulation_result.total_busy_time += (next_request_time - time)
                         time = next_request_time
+                if time <= prev_time:
+                    break
         
         for request in released_requests:
             if (not request.is_completed) and (not request.missed_deadline) and time > request.absolute_deadline:
