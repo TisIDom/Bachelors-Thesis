@@ -69,7 +69,7 @@ class PHScheduler(RMSScheduler):
             
 class GAOptimizer:
     def optimize(self, taskset, scheduler, energy_model, population_size, generation_count, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
-        
+        temp_taskset = copy.deepcopy(taskset)
         simulator = sim.Simulator()
         chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
                        for _ in range(population_size)
@@ -82,11 +82,18 @@ class GAOptimizer:
                 new_offset = random.randint(0, taskset.taskset[j].T)
                 chromosome[j] = new_offset
         
+        for k, new_offset in enumerate(chromosomes[0]):
+            temp_taskset.taskset[k].offset = new_offset
+        sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
+        energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
+        curr_best_total = energy_vals['total_energy']
+        curr_best_offsets = chromosomes[0].copy()
+        
+        
         for i in range(generation_count):
             fitness_by_id = []
             chromosome_mate_pool = []
             for j, chromosome in enumerate(chromosomes):
-                temp_taskset = copy.deepcopy(taskset)
                 for k, new_offset in enumerate(chromosome):
                     temp_taskset.taskset[k].offset = new_offset
                 sim_res = sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
@@ -99,6 +106,14 @@ class GAOptimizer:
                     
                 fitness_by_id[j] = fitness
 
+            if min(fitness_by_id) < curr_best_total:
+                curr_best_total = energy_vals['total_energy']
+                curr_best_offsets = chromosomes[fitness_by_id.index(min(fitness_by_id))].copy()
+            
+            print(i)
+            print(min(fitness_by_id))
+            # print(curr_best_total)
+            
             ranked = sorted(zip(fitness_by_id, chromosomes), key=lambda x: x[0])
             elite1 = ranked[0][1].copy()
             elite2 = ranked[1][1].copy()
@@ -113,12 +128,13 @@ class GAOptimizer:
                 new_chromosomes[i] = self.mutate(new_chromosomes[i][1], taskset, 0.03)
                 
             chromosomes = [elite1, elite2] + new_chromosomes
-                
-        final_chromosome = chromosomes[fitness_by_id.index(min(fitness_by_id))]
+
+        final_chromosome = curr_best_offsets.copy()
+        print(final_chromosome)
         for i, new_offset in enumerate(final_chromosome):
                         temp_taskset.taskset[i].offset = new_offset
         sim_res = sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
-        return sim_res
+        return sim_res, final_chromosome, curr_best_total
     
     
     def tournament_select(self, chromosomes, fitness_by_id, k=2):
@@ -165,7 +181,7 @@ class SAOptimizer:
         offset_array = []
         current_energy = 0
         temp_taskset = copy.deepcopy(taskset)
-        
+
         # initial solution
         for task in taskset.taskset:
             offset_array.append(random.randint(0, task.D-1))
@@ -176,9 +192,14 @@ class SAOptimizer:
         energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
         current_energy = energy_vals['total_energy']
         
+        curr_best_total = current_energy
+        curr_best_offsets = offset_array
+        
         rep_sched = 5
-        temp = 10
-        for i in range(temp):
+        T = 1000000
+        T_delta = 0.95
+        T_min = 1
+        while T > T_min:
             for j in range(rep_sched):
                 new_offset_array = self.neighborhood_move(taskset, offset_array)
                 for k, new_offset in enumerate(new_offset_array):
@@ -188,38 +209,54 @@ class SAOptimizer:
                 new_energy = energy_vals['total_energy']
                 energy_delta = current_energy - new_energy
                 if energy_delta < 0:
-                    acceptance_probability = pow(math.e, energy_delta / temp)
-                    if random.random() > acceptance_probability:
+                    acceptance_probability = pow(math.e, energy_delta / T)
+                    if random.random() < acceptance_probability:
                         current_energy = new_energy
                         offset_array = new_offset_array
                 else:
                     current_energy = new_energy
                     offset_array = new_offset_array
-        return sim_res
+                if new_energy < curr_best_total:
+                    curr_best_total = new_energy
+                    curr_best_offsets = new_offset_array.copy()
+                print(curr_best_total)
+            T = T * T_delta
+        
+        
+        # use best solution
+        print(curr_best_offsets)
+        for k, new_offset in enumerate(curr_best_offsets):
+            temp_taskset.taskset[k].offset = new_offset
+        sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
+        return sim_res, curr_best_offsets, curr_best_total
     
-    def neighborhood_move(self, taskset, offset_array, move_amount=10):
+    
+    def neighborhood_move(self, taskset, offset_array, max_move_amount=50):
         choice = random.randint(1, 3)
+        new_offset_array = offset_array.copy()
         
         # shift 1 offset
         if choice == 1:
-            idx = random.randint(1, len(offset_array)-1)
+            idx = random.randint(1, len(new_offset_array)-1)
             sign = random.randint(0, 1)
+            step = max(max_move_amount, taskset.taskset[idx].D // 20)
             if sign:
-                offset_array[idx] += min(random.randint(1, move_amount), taskset.taskset[idx].D-1)
+                new_offset_array[idx] = min(new_offset_array[idx] + random.randint(1, step), new_offset_array[idx] + taskset.taskset[idx].D-1)
             else:
-                offset_array[idx] = max(0, offset_array[idx] - random.randint(1, move_amount))
+                new_offset_array[idx] = max(0, new_offset_array[idx] - random.randint(1, step))
     
         # switch 2 offsets
         elif choice == 2:
-            idx1, idx2 = random.sample(range(len(offset_array)-1), 2)
-            temp = offset_array[idx1]
-            offset_array[idx1] = min(offset_array[idx2], taskset.taskset[idx1].D-1)
-            offset_array[idx2] = min(temp, taskset.taskset[idx2].D-1)
+            idx1, idx2 = random.sample(range(1, len(new_offset_array)-1), 2)
+            temp = new_offset_array[idx1]
+            new_offset_array[idx1] = min(new_offset_array[idx2], taskset.taskset[idx1].D-1)
+            new_offset_array[idx2] = min(temp, taskset.taskset[idx2].D-1)
+            
         # regenerate 1 offset
         elif choice == 3:
-            idx = random.randint(1, len(offset_array)-1)
-            offset_array[idx] = random.randint(0, taskset.taskset[idx].D-1)
-        return offset_array
+            idx = random.randint(1, len(new_offset_array)-1)
+            new_offset_array[idx] = random.randint(0, taskset.taskset[idx].D-1)
+        return new_offset_array
 
 # PSOOptimizer object:
 # optimize(taskset, scheduler, energy_model, horizon)
