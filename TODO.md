@@ -16,11 +16,11 @@ to do:
         - tournament select candidates [2-4] 
 
     SA:
+    - play with neighborhood move aggression, different likelihood of each happening
     - testing with different parameters, keep track of performance (optimizing time as well as fitness improvements) on same taskset:
         - temp [?-?]
-        - minimum temp [?-?]
+        - minimum temp [1?]
         - temperature change multiplier [0.9-0.99]
-        - repetitions per temp [1-10]
         - repetitions per temp [1-10]
 
     PSO:
@@ -30,7 +30,7 @@ to do:
     Thesis direction:
     - define task set model, energy model, simulator
     - explain and compare EDF, RMS, PH
-    - explain EDF, RMS, PH; tune each algo parameter set and then compare
+    - explain GA SA PSO; tune each algo parameter set and then compare based on optimization time and results 
     - final comparison between all on new tasksets of varying parameters
-    - explain which mh algo is useful when, compare offline vs real-time scheduling, 
+    - explain which mh algo is most useful with what parameters and when, when it is not useful, try to argue why, compare offline vs real-time scheduling, 
 
