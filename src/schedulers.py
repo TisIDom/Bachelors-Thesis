@@ -68,7 +68,7 @@ class PHScheduler(RMSScheduler):
 
             
 class GAOptimizer:
-    def optimize(self, taskset, scheduler, energy_model, population_size, generation_count, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, population_size, generation_count, mutation_rate=0.03, elite_count=2, ts_candidates=2):
         temp_taskset = copy.deepcopy(taskset)
         simulator = sim.Simulator()
         chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
@@ -115,19 +115,20 @@ class GAOptimizer:
             # print(curr_best_total)
             
             ranked = sorted(zip(fitness_by_id, chromosomes), key=lambda x: x[0])
-            elite1 = ranked[0][1].copy()
-            elite2 = ranked[1][1].copy()
+            elites = []
+            for i in range(elite_count):
+                elites.append(ranked[i][1].copy())
             
             for _ in range(len(chromosomes)-2):
-                idx, surviving_chromosome = self.tournament_select(chromosomes, fitness_by_id)
+                idx, surviving_chromosome = self.tournament_select(chromosomes, fitness_by_id, ts_candidates)
                 chromosome_mate_pool.append((idx, surviving_chromosome))
 
             new_chromosomes = self.mate_chromosomes(chromosome_mate_pool)
             
             for i in range(len(new_chromosomes)):
-                new_chromosomes[i] = self.mutate(new_chromosomes[i][1], taskset, 0.03)
+                new_chromosomes[i] = self.mutate(new_chromosomes[i][1], taskset, mutation_rate)
                 
-            chromosomes = [elite1, elite2] + new_chromosomes
+            chromosomes = elites + new_chromosomes
 
         final_chromosome = curr_best_offsets.copy()
         print(final_chromosome)
@@ -137,7 +138,7 @@ class GAOptimizer:
         return sim_res, final_chromosome, curr_best_total
     
     
-    def tournament_select(self, chromosomes, fitness_by_id, k=2):
+    def tournament_select(self, chromosomes, fitness_by_id, k):
         candidate_indices = random.sample(range(len(chromosomes)), k)
         best_idx = min(candidate_indices, key=lambda i: fitness_by_id[i])
         return best_idx, chromosomes[best_idx]
@@ -176,7 +177,7 @@ class GAOptimizer:
         
 
 class SAOptimizer:
-    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, T=1000000, T_delta=0.95, T_min=1, rep_per_sched=5):
         simulator = sim.Simulator()
         offset_array = []
         current_energy = 0
@@ -195,12 +196,8 @@ class SAOptimizer:
         curr_best_total = current_energy
         curr_best_offsets = offset_array
         
-        rep_sched = 5
-        T = 1000000
-        T_delta = 0.95
-        T_min = 1
         while T > T_min:
-            for j in range(rep_sched):
+            for j in range(rep_per_sched):
                 new_offset_array = self.neighborhood_move(taskset, offset_array)
                 for k, new_offset in enumerate(new_offset_array):
                     temp_taskset.taskset[k].offset = new_offset
@@ -219,9 +216,8 @@ class SAOptimizer:
                 if new_energy < curr_best_total:
                     curr_best_total = new_energy
                     curr_best_offsets = new_offset_array.copy()
-                print(curr_best_total)
+                    print(curr_best_total)
             T = T * T_delta
-        
         
         # use best solution
         print(curr_best_offsets)
@@ -258,5 +254,10 @@ class SAOptimizer:
             new_offset_array[idx] = random.randint(0, taskset.taskset[idx].D-1)
         return new_offset_array
 
-# PSOOptimizer object:
-# optimize(taskset, scheduler, energy_model, horizon)
+class PSOOptimizer():
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
+        particles = [self.Particle] * 30
+        informant_count = 3
+        
+    class Particle:
+        a=0

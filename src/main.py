@@ -47,7 +47,7 @@ if __name__== "__main__":
             scheduler = sched.RMSScheduler(taskset.taskset)
             sim_res = simulator.run(taskset, scheduler, release_window, simulation_horizon)
             energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
-            print(sim_res.timeline, file=f)
+            # print(sim_res.timeline, file=f)
             print(energy_vals, file=f)
             for task in taskset.taskset:
                 print(vars(task), file=f)
@@ -65,22 +65,22 @@ if __name__== "__main__":
             # for miss in sim_res.deadline_misses:
             #     print(vars(miss), file=f)
                 
-            # scheduler = sched.RMSScheduler(taskset.taskset)      
-            # optimizer = sched.GAOptimizer()
-            # sim_res = optimizer.optimize(taskset, scheduler, energy_model, 40, 50, release_window, simulation_horizon, evaluate_start, evaluate_stop)
-            # energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
+            scheduler = sched.RMSScheduler(taskset.taskset)      
+            optimizer = sched.GAOptimizer()
+            sim_res, best_offsets, best_total_energy = optimizer.optimize(taskset, scheduler, energy_model, release_window, simulation_horizon, evaluate_start, evaluate_stop, 100, 50)
+            energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
             # print(sim_res.timeline, file=f)
-            # print(energy_vals, file=f)
-            # for task in taskset.taskset:
-            #     print(vars(task), file=f)
-            # for miss in sim_res.deadline_misses:
-            #     print(vars(miss), file=f)
+            print(energy_vals, file=f)
+            for task in taskset.taskset:
+                print(vars(task), file=f)
+            for miss in sim_res.deadline_misses:
+                print(vars(miss), file=f)
             
             scheduler = sched.RMSScheduler(taskset.taskset)      
             optimizer = sched.SAOptimizer()
-            sim_res = optimizer.optimize(taskset, scheduler, energy_model, release_window, simulation_horizon, evaluate_start, evaluate_stop)
+            sim_res, best_offsets, best_total_energy = optimizer.optimize(taskset, scheduler, energy_model, release_window, simulation_horizon, evaluate_start, evaluate_stop)
             energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
-            print(sim_res.timeline, file=f)
+            # print(sim_res.timeline, file=f)
             print(energy_vals, file=f)
             for task in taskset.taskset:
                 print(vars(task), file=f)
