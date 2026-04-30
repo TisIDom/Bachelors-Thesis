@@ -19,12 +19,13 @@ class EDFScheduler(Scheduler):
     
 class RMSScheduler(Scheduler):        
     def get_next_request(self, released_requests, time):
-        next_request = min(released_requests, key=lambda r: (r.absolute_deadline - r.release_time))
+        next_request = min(released_requests, key=lambda r: (r.absolute_deadline - r.release_time, r.task_id))
         return next_request
     
      
 class PHScheduler(RMSScheduler):
     z_by_task_id = []
+    
     def __init__(self, taskset):
         self.z_by_task_id = self.compute_z_times(taskset)
     
@@ -32,7 +33,7 @@ class PHScheduler(RMSScheduler):
         if len(released_requests) == 0:
             return time
         wake = min(
-            request.release_time + self.z_by_task_id[request.task_id]
+            request.release_time + min(self.z_by_task_id)
             for request in released_requests
             if not request.is_completed
         )
@@ -54,8 +55,8 @@ class PHScheduler(RMSScheduler):
                 if wcrt_iterations[j-1] == new_wcrt:
                     wcrt = new_wcrt
                     break
-                if new_wcrt > temp_taskset[i].D:
-                    return None
+                # if new_wcrt > temp_taskset[i].D:
+                #     return None
                 wcrt_iterations.append(new_wcrt)
                 j+=1
             temp_z_by_id.append(temp_taskset[i].T - wcrt)
@@ -110,8 +111,8 @@ class GAOptimizer:
                 curr_best_total = energy_vals['total_energy']
                 curr_best_offsets = chromosomes[fitness_by_id.index(min(fitness_by_id))].copy()
             
-            print(i)
-            print(min(fitness_by_id))
+            # print(i)
+            # print(min(fitness_by_id))
             # print(curr_best_total)
             
             ranked = sorted(zip(fitness_by_id, chromosomes), key=lambda x: x[0])
@@ -131,7 +132,7 @@ class GAOptimizer:
             chromosomes = elites + new_chromosomes
 
         final_chromosome = curr_best_offsets.copy()
-        print(final_chromosome)
+        # print(final_chromosome)
         for i, new_offset in enumerate(final_chromosome):
                         temp_taskset.taskset[i].offset = new_offset
         sim_res = sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
@@ -216,11 +217,11 @@ class SAOptimizer:
                 if new_energy < curr_best_total:
                     curr_best_total = new_energy
                     curr_best_offsets = new_offset_array.copy()
-                    print(curr_best_total)
+                    # print(curr_best_total)
             T = T * T_delta
         
         # use best solution
-        print(curr_best_offsets)
+        # print(curr_best_offsets)
         for k, new_offset in enumerate(curr_best_offsets):
             temp_taskset.taskset[k].offset = new_offset
         sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
