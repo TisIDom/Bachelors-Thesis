@@ -1,5 +1,12 @@
 to do:
 
+        # Scenarios for experiments
+        # Synchronous release
+        # all offsets = 0
+        # Random phase / asynchronous release
+        # each task gets a random offset, between 0 and task.D
+        # Structured phase patterns
+        # aligned or clustered
     taskset testing:
     - test all algorithms with these taskset generation parameters:
         - task count [3-20]

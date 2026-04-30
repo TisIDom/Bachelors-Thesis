@@ -12,14 +12,14 @@ class Scheduler:
         return time
 
 class EDFScheduler(Scheduler):
-    def get_next_request(self, released_requests, time):
+    def get_next_request(self, released_requests, time, taskset):
         next_request = min(released_requests, key=lambda r: r.absolute_deadline)
         return next_request
         
     
 class RMSScheduler(Scheduler):        
-    def get_next_request(self, released_requests, time):
-        next_request = min(released_requests, key=lambda r: (r.absolute_deadline - r.release_time, r.task_id))
+    def get_next_request(self, released_requests, time, taskset):
+        next_request = min(released_requests, key=lambda r: (taskset.taskset[r.task_id].T, r.task_id))
         return next_request
     
      
@@ -40,7 +40,7 @@ class PHScheduler(RMSScheduler):
         return max(time, wake)
     
     def compute_z_times(self, taskset):
-        temp_taskset = taskset.copy()
+        temp_taskset = copy.deepcopy(taskset)
         temp_taskset.sort(key=lambda x: (x.T, x.id))
         temp_z_by_id = []
         
@@ -69,7 +69,7 @@ class PHScheduler(RMSScheduler):
 
             
 class GAOptimizer:
-    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, population_size, generation_count, mutation_rate=0.03, elite_count=2, ts_candidates=2):
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, population_size, generation_count, mutation_rate=0.03, elite_count=2, ts_candidates=2, mutation_max_amount=250):
         temp_taskset = copy.deepcopy(taskset)
         simulator = sim.Simulator()
         chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
@@ -108,7 +108,7 @@ class GAOptimizer:
                 fitness_by_id[j] = fitness
 
             if min(fitness_by_id) < curr_best_total:
-                curr_best_total = energy_vals['total_energy']
+                curr_best_total = min(fitness_by_id)
                 curr_best_offsets = chromosomes[fitness_by_id.index(min(fitness_by_id))].copy()
             
             # print(i)
@@ -117,17 +117,17 @@ class GAOptimizer:
             
             ranked = sorted(zip(fitness_by_id, chromosomes), key=lambda x: x[0])
             elites = []
-            for i in range(elite_count):
-                elites.append(ranked[i][1].copy())
+            for j in range(elite_count):
+                elites.append(ranked[j][1].copy())
             
-            for _ in range(len(chromosomes)-2):
+            for _ in range(len(chromosomes)-elite_count):
                 idx, surviving_chromosome = self.tournament_select(chromosomes, fitness_by_id, ts_candidates)
                 chromosome_mate_pool.append((idx, surviving_chromosome))
 
             new_chromosomes = self.mate_chromosomes(chromosome_mate_pool)
             
-            for i in range(len(new_chromosomes)):
-                new_chromosomes[i] = self.mutate(new_chromosomes[i][1], taskset, mutation_rate)
+            for j in range(len(new_chromosomes)):
+                new_chromosomes[j] = self.mutate(new_chromosomes[j][1], taskset, mutation_rate, mutation_max_amount)
                 
             chromosomes = elites + new_chromosomes
 
@@ -169,11 +169,17 @@ class GAOptimizer:
         child2[0] = 0
         return child1, child2
         
-    def mutate(self, child, taskset, mutation_chance):
+    def mutate(self, child, taskset, mutation_chance, mutation_max_amount):
         new_child = child[:]
         for i in range(1, len(new_child)):
             if random.random() < mutation_chance:
-                new_child[i] = random.randint(0, taskset.taskset[i].T-1)
+                sign = random.randint(0,1)
+                if sign == 1:
+                    new_child[i] = max(0, new_child[i] - random.randint(1, mutation_max_amount))
+                    
+                else:
+                    new_child[i] = min(new_child[i] + random.randint(1, mutation_max_amount), new_child[i] + taskset.taskset[i].D-1)
+                    
         return new_child
         
 

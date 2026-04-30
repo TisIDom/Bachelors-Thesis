@@ -71,7 +71,7 @@ class Simulator:
                         is_sleeping = True
                         time = next_request_time
                         break
-                    current_request = scheduler.get_next_request(released_requests, time)
+                    current_request = scheduler.get_next_request(released_requests, time, taskset)
                     if time + current_request.remaining_time <= next_request_time:
                         # take into account offset?
                         simulation_result.timeline.append((time, time + current_request.remaining_time, current_request.task_id, current_request.id))
