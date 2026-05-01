@@ -261,10 +261,78 @@ class SAOptimizer:
             new_offset_array[idx] = random.randint(0, taskset.taskset[idx].D-1)
         return new_offset_array
 
+
 class PSOOptimizer():
-    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop):
-        particles = [self.Particle] * 30
-        informant_count = 3
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, particle_count=30, informant_count=3):
+        # recommended params based on PSO book:
+        # particle_count = [20,40]
+        # informant_count = [3,5]
+        simulator = sim.Simulator()
+        particles = []
+        time = 0
+        time_limit = 150
+        temp_taskset = copy.deepcopy(taskset)
+        best_offsets = []
+        best_energy = float("inf")
         
+        for i in range(particle_count):
+            particles.append(self.Particle(taskset, i, random.sample(range(0,particle_count),3)))
+        
+        for time in range(time_limit):
+            print(time)
+            for particle in particles:
+                for k, new_offset in enumerate(particle.offsets):
+                    temp_taskset.taskset[k].offset = new_offset
+                sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
+                energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
+                current_energy = energy_vals["total_energy"]
+                if current_energy < particle.best_offsets_energy or particle.current_energy == 0:
+                    particle.best_offsets = copy.deepcopy(particle.offsets)
+                    particle.best_offsets_energy = current_energy
+                    if current_energy < best_energy:
+                        best_offsets = copy.deepcopy(particle.offsets)
+                        best_energy = current_energy
+                        print(best_energy)
+                informant_particles = [particles[i] for i in particle.informant_ids]
+                best_informant = min(
+                    informant_particles,
+                    key=lambda p: p.best_offsets_energy
+                )
+                particle.best_informant_offsets = copy.deepcopy(best_informant.best_offsets)
+                particle.best_informant_energy = best_informant.best_offsets_energy
+                particle.calculate_speed(taskset)
+                particle.update_position(taskset)
+                
+        for k, new_offset in enumerate(best_offsets):
+            temp_taskset.taskset[k].offset = new_offset
+        sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
+        return sim_res, best_offsets, best_energy
+                
+                
     class Particle:
-        a=0
+        def __init__(self, taskset, id, informant_ids, v_confidence=0.7, v_confidence_max=1.43):
+            self.id = id
+            self.offsets = [random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
+            self.offsets[0] = 0
+            self.current_energy = 0
+            self.v = [0] * len(taskset.taskset)
+            self.v_confidence = v_confidence
+            self.v_confidence_max = v_confidence_max
+            self.best_offsets = copy.deepcopy(self.offsets)
+            self.best_offsets_energy = 0
+            self.informant_ids = informant_ids
+            self.best_informant_offsets = []
+            self.best_informant_energy = float("inf")
+
+            
+        def calculate_speed(self, taskset):
+            for i in range(len(self.v)):
+                self.v[i] = self.v_confidence * self.v[i] + random.uniform(0, self.v_confidence_max) * (self.best_offsets[i] - self.offsets[i]) + random.uniform(0, self.v_confidence_max) * (self.best_informant_offsets[i] - self.offsets[i])
+            
+        def update_position(self, taskset):
+            for i in range(len(self.offsets)):
+                self.offsets[i] = self.offsets[i] + self.v[i]
+                if self.offsets[i] not in range(taskset.taskset[i].T):
+                    self.v[i] = 0
+                    self.offsets[i] = min(max(self.offsets[i], 0), taskset.taskset[i].T-1)
+                    
