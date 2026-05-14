@@ -72,16 +72,16 @@ class GAOptimizer:
     def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, population_size, generation_count, mutation_rate=0.03, elite_count=2, ts_candidates=2, mutation_max_amount=250):
         temp_taskset = copy.deepcopy(taskset)
         simulator = sim.Simulator()
-        chromosomes = [[random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
+        chromosomes = [[random.randint(0, taskset.taskset[j].T - 1) for j in range(len(taskset.taskset))]
                        for _ in range(population_size)
                        ]
         
         # generate starting values
         for chromosome in chromosomes:
             chromosome[0] = 0
-            for j in range(1, len(chromosome)):
-                new_offset = random.randint(0, taskset.taskset[j].T)
-                chromosome[j] = new_offset
+            # for j in range(1, len(chromosome)):
+            #     new_offset = random.randint(0, taskset.taskset[j].T - 1)
+            #     chromosome[j] = new_offset
         
         for k, new_offset in enumerate(chromosomes[0]):
             temp_taskset.taskset[k].offset = new_offset
@@ -111,10 +111,6 @@ class GAOptimizer:
                 curr_best_total = min(fitness_by_id)
                 curr_best_offsets = chromosomes[fitness_by_id.index(min(fitness_by_id))].copy()
             
-            # print(i)
-            # print(min(fitness_by_id))
-            # print(curr_best_total)
-            
             ranked = sorted(zip(fitness_by_id, chromosomes), key=lambda x: x[0])
             elites = []
             for j in range(elite_count):
@@ -132,7 +128,6 @@ class GAOptimizer:
             chromosomes = elites + new_chromosomes
 
         final_chromosome = curr_best_offsets.copy()
-        # print(final_chromosome)
         for i, new_offset in enumerate(final_chromosome):
                         temp_taskset.taskset[i].offset = new_offset
         sim_res = sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
@@ -178,13 +173,13 @@ class GAOptimizer:
                     new_child[i] = max(0, new_child[i] - random.randint(1, mutation_max_amount))
                     
                 else:
-                    new_child[i] = min(new_child[i] + random.randint(1, mutation_max_amount), new_child[i] + taskset.taskset[i].D-1)
+                    new_child[i] = min(new_child[i] + random.randint(1, mutation_max_amount), taskset.taskset[i].D-1)
                     
         return new_child
         
 
 class SAOptimizer:
-    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, T=1000000, T_delta=0.95, T_min=1, rep_per_sched=5):
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, T=1000000, T_delta=0.95, T_min=1, rep_per_sched=5, max_move_amount=50):
         simulator = sim.Simulator()
         offset_array = []
         current_energy = 0
@@ -201,11 +196,11 @@ class SAOptimizer:
         current_energy = energy_vals['total_energy']
         
         curr_best_total = current_energy
-        curr_best_offsets = offset_array
+        curr_best_offsets = offset_array.copy()
         
         while T > T_min:
             for j in range(rep_per_sched):
-                new_offset_array = self.neighborhood_move(taskset, offset_array)
+                new_offset_array = self.neighborhood_move(taskset, offset_array, max_move_amount)
                 for k, new_offset in enumerate(new_offset_array):
                     temp_taskset.taskset[k].offset = new_offset
                 sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
@@ -223,11 +218,9 @@ class SAOptimizer:
                 if new_energy < curr_best_total:
                     curr_best_total = new_energy
                     curr_best_offsets = new_offset_array.copy()
-                    # print(curr_best_total)
             T = T * T_delta
         
         # use best solution
-        # print(curr_best_offsets)
         for k, new_offset in enumerate(curr_best_offsets):
             temp_taskset.taskset[k].offset = new_offset
         sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
@@ -244,7 +237,7 @@ class SAOptimizer:
             sign = random.randint(0, 1)
             step = max(max_move_amount, taskset.taskset[idx].D // 20)
             if sign:
-                new_offset_array[idx] = min(new_offset_array[idx] + random.randint(1, step), new_offset_array[idx] + taskset.taskset[idx].D-1)
+                new_offset_array[idx] = min(new_offset_array[idx] + random.randint(1, step), taskset.taskset[idx].D-1)
             else:
                 new_offset_array[idx] = max(0, new_offset_array[idx] - random.randint(1, step))
     
@@ -263,36 +256,35 @@ class SAOptimizer:
 
 
 class PSOOptimizer():
-    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, particle_count=30, informant_count=3):
+    def optimize(self, taskset, scheduler, energy_model, release_window, evaluation_hyperperiod, evaluate_start, evaluate_stop, particle_count=30, informant_count=3, iteration_count=100):
         # recommended params based on PSO book:
         # particle_count = [20,40]
         # informant_count = [3,5]
         simulator = sim.Simulator()
         particles = []
         time = 0
-        time_limit = 150
+        time_limit = iteration_count
         temp_taskset = copy.deepcopy(taskset)
         best_offsets = []
         best_energy = float("inf")
         
         for i in range(particle_count):
-            particles.append(self.Particle(taskset, i, random.sample(range(0,particle_count),3)))
+            particles.append(self.Particle(taskset, i, random.sample(range(0,particle_count),informant_count)))
         
         for time in range(time_limit):
-            print(time)
             for particle in particles:
                 for k, new_offset in enumerate(particle.offsets):
                     temp_taskset.taskset[k].offset = new_offset
                 sim_res = simulator.run(temp_taskset, scheduler, release_window, evaluation_hyperperiod)
                 energy_vals = energy_model.evaluate(sim_res, evaluate_start, evaluate_stop)
                 current_energy = energy_vals["total_energy"]
-                if current_energy < particle.best_offsets_energy or particle.current_energy == 0:
+                particle.current_energy = current_energy
+                if current_energy < particle.best_offsets_energy:
                     particle.best_offsets = copy.deepcopy(particle.offsets)
                     particle.best_offsets_energy = current_energy
                     if current_energy < best_energy:
                         best_offsets = copy.deepcopy(particle.offsets)
                         best_energy = current_energy
-                        print(best_energy)
                 informant_particles = [particles[i] for i in particle.informant_ids]
                 best_informant = min(
                     informant_particles,
@@ -312,14 +304,14 @@ class PSOOptimizer():
     class Particle:
         def __init__(self, taskset, id, informant_ids, v_confidence=0.7, v_confidence_max=1.43):
             self.id = id
-            self.offsets = [random.randint(0, taskset.taskset[j].T) for j in range(len(taskset.taskset))]
+            self.offsets = [random.randint(0, taskset.taskset[j].T - 1) for j in range(len(taskset.taskset))]
             self.offsets[0] = 0
-            self.current_energy = 0
+            self.current_energy = float("inf")
             self.v = [0] * len(taskset.taskset)
             self.v_confidence = v_confidence
             self.v_confidence_max = v_confidence_max
             self.best_offsets = copy.deepcopy(self.offsets)
-            self.best_offsets_energy = 0
+            self.best_offsets_energy = float("inf")
             self.informant_ids = informant_ids
             self.best_informant_offsets = []
             self.best_informant_energy = float("inf")
@@ -327,12 +319,13 @@ class PSOOptimizer():
             
         def calculate_speed(self, taskset):
             for i in range(len(self.v)):
-                self.v[i] = self.v_confidence * self.v[i] + random.uniform(0, self.v_confidence_max) * (self.best_offsets[i] - self.offsets[i]) + random.uniform(0, self.v_confidence_max) * (self.best_informant_offsets[i] - self.offsets[i])
+                self.v[i] = math.floor(self.v_confidence * self.v[i] + random.uniform(0, self.v_confidence_max) * (self.best_offsets[i] - self.offsets[i]) + random.uniform(0, self.v_confidence_max) * (self.best_informant_offsets[i] - self.offsets[i]))
             
         def update_position(self, taskset):
             for i in range(len(self.offsets)):
                 self.offsets[i] = self.offsets[i] + self.v[i]
-                if self.offsets[i] not in range(taskset.taskset[i].T):
+                clamped_offset = max(0, min(self.offsets[i], taskset.taskset[i].T - 1))
+                if clamped_offset != self.offsets[i]:
                     self.v[i] = 0
                     self.offsets[i] = min(max(self.offsets[i], 0), taskset.taskset[i].T-1)
                     
