@@ -17,7 +17,7 @@ class Task:
 
 class TaskSet:
     
-    def __init__(self, count, cpu_target, offsets=False):
+    def __init__(self, count, cpu_target, offsets=False, seed=None):
         # constraints
         self.min_wcet = 50
         self.max_wcet = 1000
@@ -28,6 +28,11 @@ class TaskSet:
         self.hyperperiod = 0
         self.U = 0
         
+        
+        if seed is None:
+            random.seed(time.time())
+        else:
+            random.seed(seed)
         random.seed(time.time())
         self.taskset = []
         self.generate_taskset(count, cpu_target, offsets)

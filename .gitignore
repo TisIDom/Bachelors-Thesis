@@ -1,5 +1,8 @@
 /src/plots
 /src/output*
+/src/experiment_results*
+/src/*_analysis*
+/src/analyses
 
 
 # Byte-compiled / optimized / DLL files
