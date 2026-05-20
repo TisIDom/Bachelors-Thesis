@@ -13,13 +13,13 @@ To run the tuning stage:
 python /src/run_experiment.py --run tuning --clear
 ```
 
-This tests the GA, SA and PSO parameter configurations and writes the output to the experiment results folder - /src/experiment_results/
+This tests the GA, SA and PSO parameter configurations and writes the output to the experiment results folder /src/experiment_results/
 
 Main files created by the tuning stage:
-results.csv - energy, wakeups, deadline misses, optimization time and offsets for each tested configuration
-tasksets.csv - generated task sets used in the experiments
-convergence.csv - metaheuristic progress by iteration/evaluation
-best_configs.json - selected GA, SA and PSO configurations for the final comparison
+- results.csv - energy, wakeups, deadline misses, optimization time and offsets for each tested configuration
+- tasksets.csv - generated task sets used in the experiments
+- convergence.csv - metaheuristic progress by iteration/evaluation
+- best_configs.json - selected GA, SA and PSO configurations for the final comparison
 
 To recreate the final comparison results:
 ```bash
